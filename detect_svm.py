@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
-# Perceptronによる画像検出
-# python detect_percep.py {pdump} {img} 
+# SVMによる画像検出
+# python detect_svm.py {pdump} {img} 
 # pdump : 学習後のパラメータ
 # img : 画像ファイル
 
@@ -13,21 +13,17 @@ import pickle
 import matplotlib.pyplot as plt
 
 WIDTH, HEIGHT = (64, 64)
-THRESHOLD = 0.0
+THRESHOLD = 1.8
 
 CELL_SIZE = 4
 LBP_POINTS = 24
 LBP_RADIUS = 3
-#CELL_SIZE = 4
-#LBP_POINTS = 24
-#LBP_RADIUS = 3
+#CELL_SIZE = 8
+#LBP_POINTS = 8
+#LBP_RADIUS = 2
 
-# 学習結果のパラメータを入力する
-(w0, W) = pickle.load(open(sys.argv[1]))
-
-# 画像をグレーに変換する
+svm = pickle.load(open(sys.argv[1]))
 target = color.rgb2gray(io.imread(sys.argv[2]))
-
 target_scaled = target + 0
 
 sizexy = max(target_scaled.shape[0], target_scaled.shape[1])
@@ -36,7 +32,7 @@ print "imae size(y,x)", target_scaled.shape[0], target_scaled.shape[1]
 scale_factor = 2.0 ** (-1.0 / 8.0)
 detections = []
 
-# 検出結果の重なりを判定する
+
 def overlap_score(a,b):
     left = max(a['x'], b['x'])
     right = min(a['x'] + a['width'], b['x'] + b['width'])
@@ -44,12 +40,8 @@ def overlap_score(a,b):
     bottom = min(a['y'] + a['height'], b['y'] + b['height'])
     intersect = max(0, (right - left) * (bottom - top))
     union = a['width'] * a['height'] + b['width'] * b['height'] - intersect
-    if abs(union) < 0.1:
-        return intersect
-    else:
-        return intersect / union
+    return intersect / union
 
-# LBPのヒストグラムを計算する
 def get_histogram(image):
     print "image size", image.shape[0], image.shape[1]
     lbp = feature.local_binary_pattern(image, LBP_POINTS, LBP_RADIUS, 'uniform')
@@ -63,23 +55,6 @@ def get_histogram(image):
                     histogram[y / CELL_SIZE, x / CELL_SIZE, int(lbp[y + dy, x + dx])] += 1
     return histogram
 
-# パーセプトロンでデータを分類する
-# 戻り 1:positive, -1:negative
-def do_perceptron(w0, w, X):
-
-    d = X.shape[0]
-    t = w0
-    for k in range(d):
-        t += w[k] * X[k]
-    if t > 0:
-        return [1]
-    else:
-        return [-1]
-
-
-# 画像検出する
-# 入力画像を徐々に縮小することで、相対的に検出枠を大きくする
-# つまり検出対象の大きさを変えるということ
 for s in range(16):
     print "################# ", s
     histogram = get_histogram(target_scaled)
@@ -92,14 +67,13 @@ for s in range(16):
             features = histogram[y:y + HEIGHT / CELL_SIZE,
                           x:x + WIDTH / CELL_SIZE].reshape(1, -1)
 
-            # どういうわけか、features[0]の中に特徴の配列が入っている
-            score = do_perceptron(w0, W, features[0])
+            score = svm.decision_function(features)
 
             if score[0] > THRESHOLD:
                 scell = CELL_SIZE / scale
                 swidth = WIDTH / scale
                 sheight = HEIGHT / scale
-                #print "score,scale,y,x,whidth,height", round(score[0],3), round(scale,3), round(y*scell,0), round(x*scell,0), round(swidth,0), round(sheight,0)
+                print "score,scale,y,x,whidth,height", round(score[0],3), round(scale,3), round(y*scell,0), round(x*scell,0), round(swidth,0), round(sheight,0)
                 detections.append({
                     'x': x * CELL_SIZE / scale,
                     'y': y * CELL_SIZE / scale,
@@ -110,8 +84,6 @@ for s in range(16):
 
 print("-- detect -- ")
 
-# 検出結果の出力処理
-# まず入力画像を描画する
 plt.title('detect result')
 image = io.imread(sys.argv[2])
 print(image.shape[0])
@@ -126,7 +98,6 @@ plt.imshow(image)
 detections = sorted(detections, key = lambda d: d['score'], reverse = True)
 deleted = set()
 
-# 検出結果の重なりを処理する
 for i in range(len(detections)):
     if i in deleted: continue
     for j in range(i +1, len(detections)):
@@ -134,7 +105,7 @@ for i in range(len(detections)):
             deleted.add(j)
 detections = [d for i, d in enumerate(detections) if not i in deleted]
 
-# 検出枠を描画する
+
 ar_detect = np.array(detections)
 for idx in range(ar_detect.shape[0]):
     #print idx, ar_detect[idx]
@@ -148,5 +119,6 @@ for idx in range(ar_detect.shape[0]):
     plt.plot( [d_x2, d_x2], [d_y2, d_y1], 'r', lw=1 )
     plt.plot( [d_x2, d_x1], [d_y1, d_y1], 'r', lw=1 )
 
-# 描画したものを表示する
+
 plt.show()
+

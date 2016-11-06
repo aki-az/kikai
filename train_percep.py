@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-# Perceptronによる二項分類
-#
+# パーセプトロンで学習する
+# python train_percep.py {pcsv} {ncsv} {pdump}
+# pcsv : 正例のCSVファイル名
+# ncsv : 負例のCSVファイル名
+# pdump : 学習後のパラメータ
 
 import sys
 import pickle
@@ -13,27 +16,29 @@ from pandas import Series, DataFrame
 from numpy.random import multivariate_normal
 
 # Perceptronのアルゴリズム（確率的勾配降下法）を実行
-def training_perceptron(X,y):
+# posiX,negaX : pandas DataFrame
+def training_perceptron(posiX, negaX):
 
-    # 学習データのposi/negaを数える
-    nPosi = 0
-    nNega = 0
-    for i in range(y.shape[0]):
-        if y[i] == 1: nPosi += 1
-    nNega = y.shape[0] - nPosi
+    # 正例と負例の件数を取得する
+    nPosi = posiX.shape[0]
+    nNega = negaX.shape[0]
 
-    # 特徴量のデータ件数を取得する
-    n = X.shape[0]
+    # 正例と負例の教師データを準備する
+    yP = np.tile([1], nPosi)
+    yN = np.tile([-1], nNega)
+    y = np.append(yP, yN)
 
-    # 特徴量の次元を取得する
-    d = X.shape[1]
+    # 正例と負例をマージしてnumpy配列を作成する
+    # (pandas -> numpy)
+    X = np.array( posiX.append(negaX) )
+    n, d = X.shape  # 件数と次元数
 
     # 重みベクトルを初期化する
     W = np.zeros(d, dtype=np.float)
     w0 = 0.0
 
     # w0用のバイアス値を設定する(学習データの平均値)
-    bias = X.mean() * 1.0
+    bias = X.mean()
     print("bias = %.2f" % bias)
 
     # 重みの変遷の保存場所を確保する
@@ -55,7 +60,7 @@ def training_perceptron(X,y):
                 t += W[k] * X[j,k]
 
             # 推定が誤りの場合、パラメータを修正する
-            if t * y[j] <= 0:
+            if y[j] * t <= 0:
                 w0 += y[j] * bias
                 for k in range(d):
                     W[k] += y[j] * X[j,k]
@@ -80,7 +85,7 @@ def training_perceptron(X,y):
         t = w0
         for k in range(d):
             t += W[k] * X[j,k]
-        if t * y[j] <= 0:
+        if y[j] * t <= 0:
             err += 1
             if y[j] == 1: fn += 1
             else: fp += 1
@@ -94,27 +99,21 @@ def training_perceptron(X,y):
 # Main
 if __name__ == '__main__':
 
-    # 特徴量と教師データを入力する
-    X,y = pickle.load(open(sys.argv[1], 'rb'))
-    print("n=%d d=%d" % (X.shape[0], X.shape[1]))
-
-    # 教師データを補正する
-    nNega = 0
-    for i in range(y.shape[0]):
-        if y[i] == 0:
-            y[i] = -1
-            nNega += 1
-    print("posi=%d nega=%d" % (y.shape[0] - nNega, nNega))
+    # 特徴量データを入力する
+    # 1行が、特徴ベクトルで、行数=件数となる
+    # ヘッダはなし
+    posiX = pd.read_csv(sys.argv[1], header=None)
+    negaX = pd.read_csv(sys.argv[2], header=None)
 
     # パーセプトロンの学習をする
-    ret = training_perceptron(X,y)
+    ret = training_perceptron(posiX, negaX)
     w0 = ret[0]
     w = ret[1]
     err_rate = ret[2]
     paramhist = ret[3]
 
     # 学習結果のパラメータを出力する
-    pickle.dump((w0, w), open(sys.argv[2], 'wb'))
+    pickle.dump((w0, w), open(sys.argv[3], 'wb'))
 
     # グラフ描画の準備をする
     fig = plt.figure()
