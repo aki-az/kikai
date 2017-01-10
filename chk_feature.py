@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# for python3
 #
 # 特徴抽出した正例・負例の位置関係をグラフ化する
 # python chk_feature.py {pcsv} {ncsv} 
@@ -9,7 +10,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from pandas import Series, DataFrame
+from pandas import DataFrame
 
 # Main
 if __name__ == '__main__':
@@ -17,8 +18,8 @@ if __name__ == '__main__':
     # 特徴量データを入力する
     # 1行が、特徴ベクトルで、行数=件数となる
     # ヘッダはなし
-    posiX = pd.read_csv(sys.argv[1], header=None)
-    negaX = pd.read_csv(sys.argv[2], header=None)
+    posiX = pd.read_csv(sys.argv[1], header=None, skiprows=1)
+    negaX = pd.read_csv(sys.argv[2], header=None, skiprows=1)
 
     # 各次元の平均値を計算する
     # 新たにDataFrameを用意して、各次元の平均値を格納する
