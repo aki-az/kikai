@@ -1,0 +1,44 @@
+■使い方
+1.学習用の画像を作成する
+
+　正例は猫画像からアノテーションを基に顔部分を切り出してpngにする
+　(最後の引数はオプション。指定すると入力画画像から負例画像も作成する)
+  python crop_faces.py Images/posi Train/posi Train/nega
+  python crop_faces.py Images/posi2 Train/posi2
+
+　負例は適当に画像を入力して、ランダムに切り抜く
+  python crop_negatives.py Images/nega Train/nega2 10000 n
+
+2.LBP特徴量のCSVを作成する
+
+　(1.)で作成した正例・負例画像のLBP特徴量を計算し、CSVに出力する
+　これは後続の学習で都度LBP変換する無駄を省くために行う
+  python get_feature.py 8:3:24 Train/posi lbp_posi.csv P
+  python get_feature.py 8:3:24 Train/nega lbp_nega.csv
+  python get_feature.py 8:3:24 Train/posi2 lbp_posi2.csv
+  python get_feature.py 8:3:24 Train/nega2 lbp_nega2.csv
+
+  (オプション)特徴抽出した正例・負例の位置関係をグラフ化する
+  python chk_feature.py lbp_posi.csv lbp_nega.csv
+
+3.学習する
+
+　(2.)で作成したLBP特徴量のCSVを入力して、学習する。
+　学習結果の重みパラメータなどは、pickleで出力する
+  python training.py p lbp_posi.csv lbp_nega.csv param_percep.dump
+  python training.py s lbp_posi.csv lbp_nega.csv param_svm.dump
+  python training.py a lbp_posi.csv lbp_nega.csv param_ab_percep.dump
+  学習後に、学習データによる評価を表示する。
+
+4.評価する
+
+　評価用に用意したデータで評価する
+  python chk_training.py p lbp_posi2.csv lbp_nega2.csv param_percep.dump
+  python chk_training.py s lbp_posi2.csv lbp_nega2.csv param_svm.dump
+  python chk_training.py a lbp_posi2.csv lbp_nega2.csv param_ab_percep.dump
+
+5.検証する
+  python detect_img.py s param_svm.dump xxx.jpg
+  python detect_img.py p param_percep.dump xxx.jpg
+  python detect_img.py a param_ab_percep.dump xxx.jpg
+
