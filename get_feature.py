@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
+# for python3
 # 画像から特徴抽出する
+# Original https://github.com/t-abe/cat-face-detection
 #
-# python get_feature.py {dir} {csv} 
+# python get_feature.py {spec} {dir} {csv} [P]
+# spec: n1:n2:n3 = cell_size,LBP_RADIUS,LBP_POINTS
+#   4:3:24, 4:2:8, 8:3:24, 8:2:8
 # dir : 画像ディレクトリ
 # csv : 出力CSVファイル名
+# P : 画像を水増しする(画像を反転させた特徴量を追加する)
 
 import sys
 import numpy as np
@@ -13,14 +18,17 @@ from glob import iglob
 import csv
 
 WIDTH, HEIGHT = (64, 64)
-cell_size = 4
-LBP_POINTS = 24
-LBP_RADIUS = 3
-#cell_size = 8
-#LBP_POINTS = 8
-#LBP_RADIUS = 2
 
+# コマンド引数からパラメータを取得する
+n1,n2,n3 = sys.argv[1].split(":")
+cell_size,LBP_RADIUS,LBP_POINTS = int(n1), int(n2), int(n3)
 bins = LBP_POINTS + 2
+img_dir = sys.argv[2]
+csv_file = sys.argv[3]
+
+Pad_mode = 0    # 水増しモード
+if len(sys.argv) >= 5 and sys.argv[4] == "P":
+    Pad_mode = 1
 
 # LBPからヒストグラムを作成する
 # 入力データをセル単位に分割し、LBPの値ごとに出現数を数える
@@ -60,14 +68,27 @@ def get_features(directory, writer):
         # CSV出力する
         writer.writerow(h)
         n += 1
+
+        # 水増しモードがオンの場合、左右反転画像の特徴を出力する
+        if Pad_mode == 1:
+            lbp_image = feature.local_binary_pattern(
+                np.fliplr(image), LBP_POINTS, LBP_RADIUS, 'uniform')
+            h = get_histogram_feature(lbp_image)
+            writer.writerow(h)
+            n += 1
+
     return n
 
 def main():
-    img_dir = sys.argv[1]
 
-    fpo = open(sys.argv[2], 'w')
+    # 特徴量のcsv出力準備をする
+    fpo = open(csv_file, 'w')
     writer = csv.writer(fpo)
 
+    # セルサイズなどを先頭に出力する
+    writer.writerow(['LBP', 1.0, cell_size, LBP_RADIUS, LBP_POINTS])
+
+    # 特徴抽出する
     n = get_features(img_dir, writer)
 
     fpo.close()
