@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pandas import Series, DataFrame
 
-class Perceptron:
+class AB_Perceptron:
 
     THRESHOLD = 30000
     NUM_ITERATION = 30
@@ -104,9 +104,6 @@ class Perceptron:
                     w0 += y[j] * bias * wdp[j]
                     W += y[j] * X[j] * wdp[j]
                     tw += np.sum(abs(y[j] * X[j] * wdp[j]))
-    #                for k in range(d):
-    #                    W[k] += y[j] * X[j,k] * wdp[j]
-    #                    tw += abs(y[j] * X[j,k] * wdp[j])
     
                     # 誤り率の推移をみる(学習とは関係はない)
                     err += 1
@@ -143,9 +140,6 @@ class Perceptron:
     
             # 推定する
             t = w0 + np.sum(W * X[j])
-    #        t = w0
-    #        for k in range(d):
-    #            t += W[k] * X[j,k]
     
             # 推定を誤った学習データの重みを足し合わせる
             if y[j] * t <= 0:
@@ -222,6 +216,10 @@ class Perceptron:
     # posiX, negaX : 検証データ(numpy)
     # spec_str : 検証結果グラフのタイトル文字列
     def chk_training(self, params, posiX, negaX, spec_str):
+        
+        nd = len(params)  # 弱識別器の数
+        for i in range(nd):
+            print("alpha=%f" % params[i][0])
 
         # 正例と負例の件数を取得する
         nPosi = posiX.shape[0]
@@ -240,13 +238,16 @@ class Perceptron:
     
         p_scores = []
         n_scores = []
+        for j in range( nd+1 ):
+            p_scores.append([])
+            n_scores.append([])
     
         # 学習データを順に推定する
         for i in range(n):
     
             # 弱識別器に順番に推定させる
             tt = 0.0
-            for j in range( len(params) ):
+            for j in range( nd ):
     
                 # 弱識別器のパラメータを設定する
                 alpha = params[j][0]
@@ -255,36 +256,46 @@ class Perceptron:
     
                 # 推定する
                 t = w0 + np.sum(W * X[i])
-    #            t = w0 * 1.0
-    #            for k in range(d):
-    #                t += W[k] * X[i,k]
     
                 # 推定結果(1 or -1)に識別器の重みをかけたものを足し合わせる
-                if t > 0: tt += alpha
-                else: tt -= alpha
-    
+#                if t > 0: tt += alpha
+#                else: tt -= alpha
+                tt += alpha * t
+
+                if y[i] == 1:
+                    p_scores[j].append(t)
+                else:
+                    n_scores[j].append(t)
+
             if y[i] * tt <= 0:
                 err += 1
                 if y[i] == 1: fn += 1
                 else: fp += 1
     
-            if y[j] == 1:
-                p_scores.append(tt)
+            if y[i] == 1:
+                p_scores[nd].append(tt)
             else:
-                n_scores.append(tt)
+                n_scores[nd].append(tt)
     
     
         err_rate = err * 100.0 / n
         fn_rate = fn * 100.0 / nPosi
         fp_rate = fp * 100.0 / nNega
         print("AdaBoost check: err=%d err_rate=%.1f fn_rate=%.1f fp_rate=%.1f" % (err, err_rate, fn_rate, fp_rate))
-    
+
         # グラフ描画の準備をする
         fig = plt.figure()
-        subplots1 = fig.add_subplot(1,1,1)
-        subplots1.plot(p_scores)
-        subplots1.plot(n_scores)
-        plt.grid()
+        
+        for i in range(nd+1):
+            t_sobplot = fig.add_subplot(nd+1, 1, i+1)
+            if i < nd:
+                t_sobplot.set_title("detector %d" % (i+1))
+            else:
+                t_sobplot.set_title("integrated detector")
+            t_sobplot.plot(p_scores[i])
+            t_sobplot.plot(n_scores[i])
+            t_sobplot.grid()
+        
         plt.suptitle(spec_str)
         fig.show()
-        plt.show()
+        plt.show()        

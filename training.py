@@ -38,7 +38,7 @@ if method == 'p':
         training.check(posi_file, nega_file, param_file)
 
 elif method == 'a':
-    ab_perceptron = ab_percep_cls.Perceptron()
+    ab_perceptron = ab_percep_cls.AB_Perceptron()
     training = train_cls.Training(ab_perceptron)
     if mode == 1:
         training.training(posi_file, nega_file, param_file)

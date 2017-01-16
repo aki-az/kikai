@@ -29,13 +29,13 @@ class DetectImg:
     # LBPのヒストグラムを計算する
     # 引数: LBP特徴量(numpy), LBP化した画像のサイズ, offset
     # 端からoffset分ずらしてヒストグラムを作成する
-    def get_histogram(self, lbp, size_y, size_x, offset=0):
+    def get_histogram(self, lbp, size_y, size_x, yoffset=0, xoffset=0):
     
         bins = self.lbp_points + 2
         histogram = np.zeros(shape = (int(size_y / self.cell_size), int(size_x / self.cell_size), bins), dtype = np.int)
         
-        for y in range(offset, size_y - self.cell_size, self.cell_size):
-            for x in range(offset, size_x - self.cell_size, self.cell_size):
+        for y in range(yoffset, size_y - self.cell_size, self.cell_size):
+            for x in range(xoffset, size_x - self.cell_size, self.cell_size):
                 for dy in range(self.cell_size):
                     for dx in range(self.cell_size):
                         histogram[int(y / self.cell_size), int(x / self.cell_size), int(lbp[y + dy, x + dx])] += 1
@@ -54,32 +54,33 @@ class DetectImg:
         # cell_sizeが大きいと検出対象がセルをまたいでしまうので、
         # ヒストグラム作成対象をoffset分だけずらす。
         cnt = 0
-        for offset in range(0, self.cell_size, 1):
-            histogram = self.get_histogram(lbp, image.shape[0], image.shape[1], offset)
-    
-            # ヒストグラムの左上から順にセル領域を取り出して、
-            # その部分を検出処理する。    
-            for y in range(0, histogram.shape[0] - int(self.HEIGHT / self.cell_size)):
-                for x in range(0, histogram.shape[1] - int(self.WIDTH / self.cell_size)):
-    
-                    # セル領域を一次元にreshapeする
-                    # reshapeしても、featuresは二次元配列なので注意
-                    # (features[0,xxx]に値が入る)
-                    features = histogram[y:y + int(self.HEIGHT / self.cell_size),
-                                  x:x + int(self.WIDTH / self.cell_size)].reshape(1, -1)
+        for yoffset in range(0, self.cell_size, 2):
+            for xoffset in range(0, self.cell_size, 2):
+                histogram = self.get_histogram(lbp, image.shape[0], image.shape[1], yoffset, xoffset)
         
-                    # パーセプトロンなどで計算する
-                    score = self.func(features)
+                # ヒストグラムの左上から順にセル領域を取り出して、
+                # その部分を検出処理する。    
+                for y in range(0, histogram.shape[0] - int(self.HEIGHT / self.cell_size)):
+                    for x in range(0, histogram.shape[1] - int(self.WIDTH / self.cell_size)):
         
-                    # 計算結果が閾値を超えたものだけ検出結果とする
-                    if score[0] > self.THRESHOLD:
-                        detections.append({
-                            'x': x * self.cell_size / scale,
-                            'y': y * self.cell_size / scale,
-                            'width': self.WIDTH / scale,
-                            'height': self.HEIGHT / scale,
-                            'score': score[0]})
-                        cnt += 1
+                        # セル領域を一次元にreshapeする
+                        # reshapeしても、featuresは二次元配列なので注意
+                        # (features[0,xxx]に値が入る)
+                        features = histogram[y:y + int(self.HEIGHT / self.cell_size),
+                                      x:x + int(self.WIDTH / self.cell_size)].reshape(1, -1)
+            
+                        # パーセプトロンなどで計算する
+                        score = self.func(features)
+            
+                        # 計算結果が閾値を超えたものだけ検出結果とする
+                        if score[0] > self.THRESHOLD:
+                            detections.append({
+                                'x': x * self.cell_size / scale,
+                                'y': y * self.cell_size / scale,
+                                'width': self.WIDTH / scale,
+                                'height': self.HEIGHT / scale,
+                                'score': score[0]})
+                            cnt += 1
         if cnt > 0:
             print("  %d detected" % cnt)
             
@@ -153,16 +154,19 @@ class DetectImg:
         # まず入力画像を描画する
         plt.title(title + ' detect result')
         image = io.imread(imgfile)
-        print("imae size(y,x)", image.shape[0], image.shape[1])
+        print("imae size(y,x):", image.shape[0], image.shape[1])
         plt.axis([0, image.shape[1], image.shape[0], 0])
         #io.imshow(image)
         #io.show()
         plt.imshow(image)
     
         # 検出結果の重なりを整理する
+        # 戻りはスコア順にソートされている
         detections = self.del_near_results(detections)
     
         # 検出枠を描画する
+        # 上位5件だけとする
+        print("detect    score   x   y   w   h")
         ar_detect = np.array(detections)
         for idx in range(ar_detect.shape[0]):
             #print idx, ar_detect[idx]
@@ -170,12 +174,19 @@ class DetectImg:
             d_y1 = ar_detect[idx]['y']
             d_x2 = d_x1 + ar_detect[idx]['width']
             d_y2 = d_y1 + ar_detect[idx]['height']
-            print("detect %.0f %.0f %.0f" % ( ar_detect[idx]['score'], ar_detect[idx]['width'], ar_detect[idx]['height']))
+            print("detect %8.1f %3.0f %3.0f %3.0f %3.0f" % ( ar_detect[idx]['score'], ar_detect[idx]['x'], ar_detect[idx]['y'], ar_detect[idx]['width'], ar_detect[idx]['height']))
             # 長方形の書き方がわからない(;_;
-            plt.plot( [d_x1, d_x1], [d_y1, d_y2], 'r', lw=1 )
-            plt.plot( [d_x1, d_x2], [d_y2, d_y2], 'r', lw=1 )
-            plt.plot( [d_x2, d_x2], [d_y2, d_y1], 'r', lw=1 )
-            plt.plot( [d_x2, d_x1], [d_y1, d_y1], 'r', lw=1 )
+            if idx==0:
+                plt.plot( [d_x1, d_x1], [d_y1, d_y2], 'r', lw=1 )
+                plt.plot( [d_x1, d_x2], [d_y2, d_y2], 'r', lw=1 )
+                plt.plot( [d_x2, d_x2], [d_y2, d_y1], 'r', lw=1 )
+                plt.plot( [d_x2, d_x1], [d_y1, d_y1], 'r', lw=1 )
+            else:
+                plt.plot( [d_x1, d_x1], [d_y1, d_y2], 'g', lw=1 )
+                plt.plot( [d_x1, d_x2], [d_y2, d_y2], 'g', lw=1 )
+                plt.plot( [d_x2, d_x2], [d_y2, d_y1], 'g', lw=1 )
+                plt.plot( [d_x2, d_x1], [d_y1, d_y1], 'g', lw=1 )
+            if idx == 4: break
     
         # 描画したものを表示する
         plt.show()
