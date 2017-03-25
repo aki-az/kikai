@@ -8,7 +8,8 @@ from pandas import Series, DataFrame
 
 class Perceptron:
 
-    THRESHOLD = 30000
+#    THRESHOLD = 30000
+    THRESHOLD = 50000
     NUM_ITERATION = 100
     
 #    def __init__(self, params):
@@ -68,7 +69,7 @@ class Perceptron:
             for j in seq:
     
                 # 推定する
-                t = w0 + np.sum(W * X[j])
+                t = w0 + W.dot( X[j] )
     
                 # 推定が誤りの場合、パラメータを修正する
                 if y[j] * t <= 0:
@@ -112,7 +113,6 @@ class Perceptron:
         # 正例と負例をマージしてnumpy配列を作成する
         X = np.array( posiX.append(negaX) )
 
-
         (w0, W) = params
         
         n, d = X.shape  # 件数と次元数
@@ -122,7 +122,7 @@ class Perceptron:
         n_scores = []
     
         for j in range(n):
-            t = w0 + np.sum(W * X[j])
+            t = w0 + W.dot( X[j] )
             tt = y[j] * t
             if tt <= 0:
                 err += 1

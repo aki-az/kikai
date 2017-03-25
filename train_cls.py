@@ -71,6 +71,7 @@ class Training:
             paramhist['W'].plot(ax=subplots1)
             paramhist['w0'].plot(ax=subplots2)
             paramhist['err_rate'].plot(ax=subplots2)
+            subplots1.legend(loc=1)
             subplots2.legend(loc=1)
         
             fig.show()
