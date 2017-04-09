@@ -29,7 +29,7 @@ if method == 'p':
     detect.detect(img_file, "Perceptron")
 
 elif method == 'a':
-    c = ab_percep_cls.Perceptron()
+    c = ab_percep_cls.AB_Perceptron()
     detect = detect_img_cls.DetectImg(c.predict, param_file)
 
     params = detect.get_params()
@@ -45,4 +45,3 @@ elif method == 's':
     c.set_params(params)
 
     detect.detect(img_file, "SVM")
-

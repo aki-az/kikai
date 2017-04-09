@@ -45,7 +45,7 @@ def main():
             
         # 切り出した画像を保存する
         io.imsave('%s/%d.png' % (output_dir, i), img)
-        #print("img[%s] posi[%d]" % (image_path, i))
+        print("img[%s] posi[%d]" % (image_path, i))
 
         # 負例画像も切り出す
         if output_dir_n == "":

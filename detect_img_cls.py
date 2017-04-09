@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 class DetectImg:
 
     WIDTH, HEIGHT = (64, 64)
-    THRESHOLD = 0.0
     
     def __init__(self, func, filename):
         self.func = func
@@ -64,16 +63,17 @@ class DetectImg:
                     for x in range(0, histogram.shape[1] - int(self.WIDTH / self.cell_size)):
         
                         # セル領域を一次元にreshapeする
-                        # reshapeしても、featuresは二次元配列なので注意
-                        # (features[0,xxx]に値が入る)
+                        # SVMの場合は、reshape(1, -1)しないと大量の警告が出る。むー
+                        #features = histogram[y:y + int(self.HEIGHT / self.cell_size),
+                        #              x:x + int(self.WIDTH / self.cell_size)].reshape(1, -1)
                         features = histogram[y:y + int(self.HEIGHT / self.cell_size),
-                                      x:x + int(self.WIDTH / self.cell_size)].reshape(1, -1)
+                                      x:x + int(self.WIDTH / self.cell_size)].reshape(-1)
             
                         # パーセプトロンなどで計算する
                         score = self.func(features)
             
-                        # 計算結果が閾値を超えたものだけ検出結果とする
-                        if score[0] > self.THRESHOLD:
+                        # 検出結果を保存する
+                        if score[0] > 0:
                             detections.append({
                                 'x': x * self.cell_size / scale,
                                 'y': y * self.cell_size / scale,
@@ -81,8 +81,7 @@ class DetectImg:
                                 'height': self.HEIGHT / scale,
                                 'score': score[0]})
                             cnt += 1
-        if cnt > 0:
-            print("  %d detected" % cnt)
+        return cnt
             
     # 検出結果の重なりを判定する
     # AND領域とOR領域の面積を計算し、AND/ORの値を返す
@@ -90,16 +89,20 @@ class DetectImg:
     def overlap_score(self, a,b):
         left = max(a['x'], b['x'])
         right = min(a['x'] + a['width'], b['x'] + b['width'])
+        if left >= right: return 0
+
         top = max(a['y'], b['y'])
         bottom = min(a['y'] + a['height'], b['y'] + b['height'])
+        if top >= bottom: return 0
+
         # ふたつの領域のAND部分
-        intersect = max(0, (right - left) * (bottom - top))
+        intersect = (right - left) * (bottom - top)
         # OR部分
         union = a['width'] * a['height'] + b['width'] * b['height'] - intersect
-    
+        
         # (AND領域 / OR領域)の値を返す
-        if abs(union) < 0.01:
-            return intersect    # 0での除算を回避
+        if abs(union) < 0.001:
+            return 0    # 0での除算を回避
         else:
             return intersect / union
     
@@ -127,9 +130,9 @@ class DetectImg:
         results =  [d for i, d in enumerate(results) if not i in no_needs]
         return results
 
-    def detect(self, imgfile, title=''):
+    def detect(self, img_file, title='', answer=None):
         # 画像をグレーに変換する
-        target = color.rgb2gray(io.imread(imgfile))    
+        target = color.rgb2gray(io.imread(img_file))    
         target_scaled = target + 0
     
         detections = []
@@ -143,7 +146,8 @@ class DetectImg:
             print("Loop %d scale=%.3f detect-size=%d" % (s, scale, int(self.WIDTH/scale)))
     
             # 検出する
-            self.detect_img(target_scaled, detections, scale)
+            n = self.detect_img(target_scaled, detections, scale)
+            if n > 0: print("  %d detected" % n)
     
             # 入力画像を縮小する    
             target_scaled = transform.rescale(target_scaled, scale_factor)
@@ -153,7 +157,7 @@ class DetectImg:
         # 検出結果の出力処理
         # まず入力画像を描画する
         plt.title(title + ' detect result')
-        image = io.imread(imgfile)
+        image = io.imread(img_file)
         print("imae size(y,x):", image.shape[0], image.shape[1])
         plt.axis([0, image.shape[1], image.shape[0], 0])
         #io.imshow(image)
@@ -163,6 +167,16 @@ class DetectImg:
         # 検出結果の重なりを整理する
         # 戻りはスコア順にソートされている
         detections = self.del_near_results(detections)
+
+        if answer != None:
+            d_x1 = answer['x']
+            d_y1 = answer['y']
+            d_x2 = d_x1 + answer['width']
+            d_y2 = d_y1 + answer['height']
+            plt.plot( [d_x1, d_x1], [d_y1, d_y2], 'b', lw=1 )
+            plt.plot( [d_x1, d_x2], [d_y2, d_y2], 'b', lw=1 )
+            plt.plot( [d_x2, d_x2], [d_y2, d_y1], 'b', lw=1 )
+            plt.plot( [d_x2, d_x1], [d_y1, d_y1], 'b', lw=1 )
     
         # 検出枠を描画する
         # 上位5件だけとする
@@ -176,11 +190,11 @@ class DetectImg:
             d_y2 = d_y1 + ar_detect[idx]['height']
             print("detect %8.1f %3.0f %3.0f %3.0f %3.0f" % ( ar_detect[idx]['score'], ar_detect[idx]['x'], ar_detect[idx]['y'], ar_detect[idx]['width'], ar_detect[idx]['height']))
             # 長方形の書き方がわからない(;_;
-            if idx==0:
-                plt.plot( [d_x1, d_x1], [d_y1, d_y2], 'r', lw=1 )
-                plt.plot( [d_x1, d_x2], [d_y2, d_y2], 'r', lw=1 )
-                plt.plot( [d_x2, d_x2], [d_y2, d_y1], 'r', lw=1 )
-                plt.plot( [d_x2, d_x1], [d_y1, d_y1], 'r', lw=1 )
+            if idx == 0:
+                plt.plot( [d_x1, d_x1], [d_y1, d_y2], 'r', lw=3 )
+                plt.plot( [d_x1, d_x2], [d_y2, d_y2], 'r', lw=3 )
+                plt.plot( [d_x2, d_x2], [d_y2, d_y1], 'r', lw=3 )
+                plt.plot( [d_x2, d_x1], [d_y1, d_y1], 'r', lw=3 )
             else:
                 plt.plot( [d_x1, d_x1], [d_y1, d_y2], 'g', lw=1 )
                 plt.plot( [d_x1, d_x2], [d_y2, d_y2], 'g', lw=1 )
@@ -191,6 +205,54 @@ class DetectImg:
         # 描画したものを表示する
         plt.show()
 
+
+    # 学習結果の検証用に顔検出する
+    # バッチ用なので、画像の出力はしない。
+    # param_file : パラメータファイル
+    # order : 検出結果の何位までを検出したとみなすか
+    # overlap_ratio : 正解の位置との重なり具合(0.0 - 1.0)
+    # 戻り値 : -1:エラー、 0:検出できず、 1以上 : 検出した順位
+    def detect_noplot(self, img_file, answer, order, overlap_ratio):
+
+        # 画像をグレーに変換する
+        target = color.rgb2gray(io.imread(img_file))    
+        target_scaled = target + 0
+    
+        detections = []
+        scale_factor = 2.0 ** (-1.0 / 8.0)
+    
+        # 画像検出する
+        # 入力画像を徐々に縮小することで、相対的に検出枠を大きくする
+        # つまり検出対象の大きさを変えるということ
+        for s in range(32):
+            scale = (scale_factor ** s)
+    
+            # 検出する
+            self.detect_img(target_scaled, detections, scale)
+    
+            # 入力画像を縮小する    
+            target_scaled = transform.rescale(target_scaled, scale_factor)
+
+        # 検出結果の重なりを整理する
+        # 戻りはスコア順にソートされている
+        detections = self.del_near_results(detections)
+    
+        print("answer %3.0f %3.0f %3.0f %3.0f" % ( answer['x'], answer['y'], answer['width'], answer['height']))
+
+        res = 0
+        ar_detect = np.array(detections)
+        for idx in range(ar_detect.shape[0]):
+
+            s = self.overlap_score(answer, detections[idx])
+            print("idx=%d  s=%f" % (idx+1, s))
+            if s > overlap_ratio:
+                print("OK idx=%d score=%f" % (idx+1, s))
+                res = idx +1
+                break
+
+            if idx == order-1: break
+    
+        return res
 
 
 # Main

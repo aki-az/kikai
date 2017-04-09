@@ -9,7 +9,8 @@ from pandas import Series, DataFrame
 
 class AB_Perceptron:
 
-    THRESHOLD = 30000
+    #THRESHOLD = 20000
+    THRESHOLD = 250000
     NUM_ITERATION = 30
     NUM_DETECTORS = 3
     
@@ -32,7 +33,7 @@ class AB_Perceptron:
             t = w0 + np.sum(W * X)
     
     #        if t > 0:
-            if t > 20000: tt = 1.0
+            if t > self.THRESHOLD: tt = 1.0
             else: tt -1.0
             ts.append(alpha * tt)
     
@@ -50,10 +51,10 @@ class AB_Perceptron:
             (alpha, w0, W) = self.params[i]
      
             # w0, w : バイアス、重み
-            t = w0 + np.sum(W * X)
+            t = w0 + W.dot( X )
             tt += alpha * t
     
-        if tt > 250000: return [tt]
+        if tt > self.THRESHOLD: return [tt]
         else: return [-1]
 
 
