@@ -51,7 +51,8 @@ class AB_Perceptron:
             (alpha, w0, W) = self.params[i]
      
             # w0, w : バイアス、重み
-            t = w0 + W.dot( X )
+#            t = w0 + W.dot( X )
+            t = w0 + np.sum(W * X)
             tt += alpha * t
     
         if tt > self.THRESHOLD: return [tt]

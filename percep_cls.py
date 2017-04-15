@@ -22,7 +22,7 @@ class Perceptron:
     def predict(self, X):
     
         # w0, w : バイアス、重み
-        t = self.W0 + self.W.dot( X )
+        t = self.w0 + np.sum(self.W * X)
         if t > self.THRESHOLD:
             return [t]
         else:
@@ -69,7 +69,7 @@ class Perceptron:
             for j in seq:
     
                 # 推定する
-                t = w0 + W.dot( X[j] )
+                t = w0 + np.sum(W * X[j])
     
                 # 推定が誤りの場合、パラメータを修正する
                 if y[j] * t <= 0:
@@ -122,7 +122,7 @@ class Perceptron:
         n_scores = []
     
         for j in range(n):
-            t = w0 + W.dot( X[j] )
+            t = w0 + np.sum(W * X[j])
             tt = y[j] * t
             if tt <= 0:
                 err += 1

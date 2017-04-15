@@ -11,6 +11,7 @@
 # python chk_training.py {m} {pcsv} {ncsv} {pdump}
 # として実行すると、学習後のパラメータを入力して検証する
 
+import os
 import sys
 
 import train_cls
@@ -19,7 +20,7 @@ import ab_percep_cls
 import svm_cls
 
 mode = 1
-if sys.argv[0] == 'chk_training.py':
+if os.path.basename(sys.argv[0]) == 'chk_training.py':
     mode = 2
 
 method = sys.argv[1]
