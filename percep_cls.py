@@ -22,7 +22,7 @@ class Perceptron:
     def predict(self, X):
     
         # w0, w : バイアス、重み
-        t = self.w0 + np.sum(self.W * X)
+        t = self.W0 + np.sum(self.W * X)
         if t > self.THRESHOLD:
             return [t]
         else:
